@@ -1,5 +1,6 @@
 from telebot import TeleBot, types
 from config import API_TOKEN
+from db_helper import db
 
 
 bot = TeleBot(API_TOKEN)
@@ -15,13 +16,28 @@ sentences = {
 MIN_NAME_LEN = 2
 MAX_NAME_LEN = 20
 
-users = {}
+# users = {}
 
-class User:
-	def __init__(self, name):
-		self.name = name
-		self.age = None
-		self.gender = None
+# class User:
+# 	def __init__(self, name):
+# 		self.name = name
+# 		self.age = None
+# 		self.gender = None
+
+
+def check_any_command(cmd):
+	commands = {
+		'/start': start,
+		'/help': help,
+		'/menu': menu,
+		'/info': get_info,
+		'/settings': change_info,
+		'/change_name': process_info,
+		'/change_age': process_info,
+		'/change_gender': process_info,
+		'/delete': delete_info
+	}
+	return commands.get(cmd)
 
 
 def is_natural(n):
@@ -35,7 +51,8 @@ def is_natural(n):
 
 @bot.message_handler(commands=['start'])
 def start(message):
-	msg = bot.reply_to(message, sentences['get_name'])
+	markup = types.ReplyKeyboardRemove(selective=False)
+	msg = bot.send_message(message.chat.id, sentences['get_name'], reply_markup=markup)
 	bot.register_next_step_handler(msg, process_name_step)
 
 
@@ -64,14 +81,16 @@ def process_menu(message):
 	try:
 		chat_id = message.chat.id
 		param = message.text
-		# markup = types.ReplyKeyboardRemove(selective=False)
-		# bot.send_message(chat_id, message, reply_markup=markup)
-		if param == 'Info':
+		if param in ['Info', '/info']:
 			get_info(message)
-		elif param == 'Settings':
+		elif param in ['Settings', '/settings']:
 			change_info(message)
 		else:
-			menu(message)
+			func = check_any_command(param)
+			if func:
+				func(message)
+			else:
+				menu(message)
 	except Exception as e:
 		bot.reply_to(message, f'Exception: {e}')
 
@@ -80,9 +99,16 @@ def process_menu(message):
 def get_info(message):
 	try:
 		chat_id = message.chat.id
-		user = users[chat_id]
-		user_data = '''Name: {} \nAge: {} \nGender: {}
-					'''.format(user.name, user.age, user.gender)
+		# user = users[chat_id]
+		data = db.get_data(chat_id)
+		print(data)
+		user_data = ''
+		for tupl in data:
+			user_data = '''Name: {} \nAge: {} \nGender: {}
+					'''.format(tupl[0], tupl[1], tupl[2])	
+		# user_data = '''Name: {} \nAge: {} \nGender: {}
+		# 			'''.format(user.name, user.age, user.gender)
+
 		markup = types.ReplyKeyboardRemove(selective=False)
 		bot.send_message(chat_id, user_data, reply_markup=markup)
 		menu(message)
@@ -113,6 +139,7 @@ def process_info(message):
 	try:
 		chat_id = message.chat.id
 		param = message.text
+
 		markup = types.ReplyKeyboardMarkup()
 		back_btn = types.KeyboardButton('Back')
 		markup.add(back_btn)
@@ -123,10 +150,16 @@ def process_info(message):
 			msg = bot.send_message(chat_id, sentences['get_age'], reply_markup=markup)
 			bot.register_next_step_handler(msg, process_age)
 		elif param in ['Change gender', '/change_gender']:
-			bot.send_message(chat_id, 'if you wanna', reply_markup=markup)
+			bot.send_message(chat_id, 'if you wanna change', reply_markup=markup)
 			set_gender(message)
 		elif param == 'Back':
 			menu(message)
+		else:
+			func = check_any_command(param)
+			if func:
+				func(message)
+			else:
+				change_info(message)
 	except Exception as e:
 		bot.reply_to(message, f'Exception: {e}')
 
@@ -138,11 +171,18 @@ def process_name(message):
 		if name == 'Back':
 			return change_info(message)
 		if len(name) >= MIN_NAME_LEN and len(name) <= MAX_NAME_LEN:
-			user = users.get(chat_id)
-			if user:
-				user.name = name
-			else:
-				users[chat_id] = User(name)
+			# user = users.get(chat_id)
+			# if user:
+			# 	user.name = name
+			# else:
+			# 	users[chat_id] = User(name)
+			data = db.check_row(chat_id)
+			for tupl in data:
+				for num in tupl:
+					row_num = num
+			if row_num == 0:
+				db.append_row(chat_id)
+			db.update_row(chat_id, 'name', name)
 
 			menu(message)
 		else:
@@ -157,11 +197,18 @@ def process_name_step(message):
 		chat_id = message.chat.id
 		name = message.text
 		if len(name) >= MIN_NAME_LEN and len(name) <= MAX_NAME_LEN:
-			user = users.get(chat_id)
-			if user:
-				user.name = name
-			else:
-				users[chat_id] = User(name)
+			# user = users.get(chat_id)
+			# if user:
+			# 	user.name = name
+			# else:
+			# 	users[chat_id] = User(name)
+			data = db.check_row(chat_id)
+			for tupl in data:
+				for num in tupl:
+					row_num = num
+			if row_num == 0:
+				db.append_row(chat_id)
+			db.update_row(chat_id, 'name', name)
 
 			msg = bot.reply_to(message, sentences['get_age'])
 			bot.register_next_step_handler(msg, process_age_step)
@@ -178,8 +225,9 @@ def process_age(message):
 		age = message.text
 		if is_natural(age):
 			age = int(age)
-			user = users[chat_id]
-			user.age = age
+			# user = users[chat_id]
+			# user.age = age
+			db.update_row(chat_id, 'age', age)
 
 			menu(message)
 		elif age == 'Back':
@@ -197,8 +245,9 @@ def process_age_step(message):
 		age = message.text
 		if is_natural(age):
 			age = int(age)
-			user = users[chat_id]
-			user.age = age
+			# user = users[chat_id]
+			# user.age = age
+			db.update_row(chat_id, 'age', age)
 
 			set_gender(message)
 		else:
@@ -217,11 +266,6 @@ def set_gender(message):
 			types.InlineKeyboardButton('female', callback_data='female'),
 			types.InlineKeyboardButton('male', callback_data='male')
 		)
-		# markup = types.ReplyKeyboardMarkup(row_width=2)
-		# female_btn = types.KeyboardButton('female')
-		# male_btn = types.KeyboardButton('male')
-		# back_btn = types.KeyboardButton('Back')
-		# markup.add(female_btn, male_btn, back_btn)
 		msg = bot.send_message(chat_id, sentences['get_gender'], reply_markup=markup)
 		bot.register_next_step_handler(msg, process_gender)
 	except Exception as e:
@@ -247,8 +291,9 @@ def send_gender_result(message, gender):
 		bot.send_chat_action(chat_id, 'typing')
 		bot.send_message(chat_id, gender)
 
-		user = users[chat_id]
-		user.gender = gender
+		# user = users[chat_id]
+		# user.gender = gender
+		db.update_row(chat_id, 'gender', gender)
 		menu(message)
 	except Exception as e:
 		bot.reply_to(message, f'Exception: {e}')
@@ -259,8 +304,10 @@ def process_gender(message):
 		chat_id = message.chat.id
 		gender = message.text
 		if gender in ['male', 'female']:
-			user = users[chat_id]
-			user.gender = gender
+			# user = users[chat_id]
+			# user.gender = gender
+			db.update_row(chat_id, 'gender', gender)
+
 			menu(message)
 		elif gender == 'Back':
 			change_info(message)
@@ -270,9 +317,29 @@ def process_gender(message):
 		bot.reply_to(message, f'Exception: {e}')
 
 
+@bot.message_handler(commands=['delete'])
+def delete_info(message):
+	try:
+		chat_id = message.chat.id
+
+		data = db.check_row(chat_id)
+		for tupl in data:
+			for num in tupl:
+				row_num = num
+		# if founded 1 row
+		if row_num:
+			db.delete_row(chat_id)
+			start(message)
+	except Exception as e:
+		bot.reply_to(message, f'Exception: {e}')
+
+
 # @bot.message_handler(func=lambda msg: True, content_types=['text'])
 # def each_input(message):
 # 	bot.reply_to(message, message.text[::-1])
 
+
+bot.enable_save_next_step_handlers(delay=2)
+bot.load_next_step_handlers()
 
 bot.polling()
