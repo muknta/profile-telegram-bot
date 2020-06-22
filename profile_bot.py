@@ -1,9 +1,12 @@
+import os
 from telebot import TeleBot, types
-from config import API_TOKEN
+from flask import Flask, request
+from config import API_TOKEN, HEROKU_URL
 from db_helper import db
 
 
 bot = TeleBot(API_TOKEN)
+app = Flask(__name__)
 
 sentences = {
 	'help': 'This bot created as task for Momentum Bots',
@@ -23,6 +26,18 @@ MAX_NAME_LEN = 20
 # 		self.name = name
 # 		self.age = None
 # 		self.gender = None
+
+
+@app.route('/' + API_TOKEN, methods=['POST'])
+def getMessage():
+	bot.process_new_updates([telebot.types.Update.de_json(request.stream.read().decode("utf-8"))])
+	return "!", 200
+
+@app.route("/")
+def webhook():
+	bot.remove_webhook()
+	bot.set_webhook(url='{}/{}'.format(HEROKU_URL, API_TOKEN))
+	return "!", 200
 
 
 def check_any_command(cmd):
@@ -343,3 +358,8 @@ bot.enable_save_next_step_handlers(delay=2)
 bot.load_next_step_handlers()
 
 bot.polling()
+
+
+
+if __name__ == '__main__':
+	app.run(host="0.0.0.0", port=int(os.environ.get('PORT', 5000)))
