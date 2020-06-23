@@ -6,7 +6,7 @@ from db_helper import db
 
 
 bot = TeleBot(API_TOKEN)
-app = Flask(__name__)
+server = Flask(__name__)
 
 sentences = {
 	'help': 'This bot created as task for Momentum Bots',
@@ -28,16 +28,16 @@ MAX_NAME_LEN = 20
 # 		self.gender = None
 
 
-@app.route('/' + API_TOKEN, methods=['POST'])
-def getMessage():
-	bot.process_new_updates([telebot.types.Update.de_json(request.stream.read().decode("utf-8"))])
-	return "!", 200
+@server.route('/{}'.format(API_TOKEN), methods=['POST'])
+def get_message():
+	bot.process_new_updates([types.Update.de_json(request.stream.read().decode("utf-8"))])
+	return "ok", 200
 
-@app.route("/")
+@server.route("/", methods=['GET'])
 def webhook():
 	bot.remove_webhook()
 	bot.set_webhook(url='{}/{}'.format(HEROKU_URL, API_TOKEN))
-	return "!", 200
+	return "ok", 200
 
 
 def check_any_command(cmd):
@@ -354,12 +354,12 @@ def delete_info(message):
 # 	bot.reply_to(message, message.text[::-1])
 
 
-bot.enable_save_next_step_handlers(delay=2)
-bot.load_next_step_handlers()
+# bot.enable_save_next_step_handlers(delay=2)
+# bot.load_next_step_handlers()
 
-bot.polling()
+# bot.polling()
 
 
 
 if __name__ == '__main__':
-	app.run(host="0.0.0.0", port=int(os.environ.get('PORT', 5000)))
+	server.run(host="0.0.0.0", port=int(os.environ.get('PORT', 5000)))

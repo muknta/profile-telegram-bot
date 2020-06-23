@@ -60,14 +60,6 @@ class DBHelper:
 					WHERE chat_id = (?);'''
 		args = (chat_id, )
 		cursor = self.conn.cursor()
-		data = cursor.execute(stmt, args)
-		print(data)
-		ar = []
-		for tupl in data:
-			print(tupl)
-			for da in tupl:
-				print('da', da)
-				ar.append(da)
 		return cursor.execute(stmt, args)
 
 
